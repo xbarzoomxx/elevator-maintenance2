@@ -188,6 +188,48 @@ const CSS = `
   }
 `;
 
+const CONTRACT_CSS = `
+.contract-doc{ background:#fff; max-width:840px; margin:18px auto; padding:46px 52px; border:1px solid #E1E7F0; box-shadow:0 8px 30px rgba(14,27,51,.08); color:#16223C; line-height:2; position:relative; font-size:14px; }
+.cd-head{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0E1B33; padding-bottom:16px; }
+.cd-logo{ display:flex; align-items:center; gap:12px; }
+.cd-logo .mark{ width:54px; height:54px; border-radius:13px; background:linear-gradient(160deg,#F2A21C,#d8860c); display:grid; place-items:center; box-shadow:0 4px 12px rgba(242,162,28,.35); }
+.cd-logo b{ font-size:21px; font-weight:900; color:#0E1B33; display:block; line-height:1.2; }
+.cd-logo small{ font-size:12px; color:#6B7A93; }
+.cd-meta{ text-align:left; font-size:12px; color:#6B7A93; line-height:1.9; }
+.cd-meta b{ color:#0E1B33; }
+.cd-title{ text-align:center; font-size:20px; font-weight:900; color:#0E1B33; margin:22px 0 2px; }
+.cd-sub{ text-align:center; color:#6B7A93; font-size:12px; margin-bottom:18px; }
+.cd-parties{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:12px 0; }
+.cd-party{ background:#F7F9FC; border:1px solid #E1E7F0; border-radius:12px; padding:13px 16px; font-size:13px; }
+.cd-party h4{ font-size:12.5px; color:#b9760a; margin-bottom:7px; font-weight:800; }
+.cd-party .row{ display:flex; justify-content:space-between; padding:2px 0; }
+.cd-party .row span{ color:#6B7A93; }
+.cd-sec{ font-weight:800; color:#0E1B33; margin:20px 0 8px; font-size:15px; border-right:4px solid #F2A21C; padding-right:10px; }
+.cd-clauses{ padding-right:20px; margin:0; }
+.cd-clauses li{ margin-bottom:8px; font-size:13.5px; }
+.cd-clauses li b{ color:#0E1B33; }
+.cd-table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
+.cd-table th{ background:#0E1B33; color:#fff; padding:8px; text-align:right; font-weight:700; }
+.cd-table td{ padding:7px 9px; border-bottom:1px solid #EEF1F6; }
+.cd-table tr:nth-child(even) td{ background:#F7F9FC; }
+.cd-signs{ display:grid; grid-template-columns:1fr 1fr; gap:36px; margin-top:42px; }
+.cd-sign{ text-align:center; position:relative; min-height:120px; }
+.cd-sign .who{ font-weight:800; color:#0E1B33; font-size:13px; }
+.cd-sign .line{ border-top:1.5px solid #16223C; padding-top:6px; font-size:11.5px; color:#6B7A93; margin-top:96px; }
+.cd-sig{ position:absolute; top:30px; left:50%; transform:translateX(-50%); }
+.cd-stamp{ position:absolute; top:6px; left:14px; transform:rotate(-9deg); opacity:.9; }
+.cd-foot{ text-align:center; color:#9aa7bd; font-size:11px; margin-top:24px; border-top:1px solid #EEF1F6; padding-top:12px; }
+.print-bar{ text-align:center; margin:18px 0 4px; }
+
+@media print{
+  .no-print{ display:none !important; }
+  .app{ display:block !important; min-height:0 !important; }
+  .main{ padding:0 !important; overflow:visible !important; }
+  .em-root{ background:#fff !important; }
+  .contract-doc{ box-shadow:none; border:none; margin:0; max-width:100%; padding:14px 8px; }
+}
+`;
+
 /* ===== بيانات تجريبية ===== */
 const SEED_CLIENTS = [
   { id:1, name:"برج الواحة السكني", loc:"حي الروضة، جدة", phone:"0555 123 456", elevators:3, contract:"ساري", remaining:2, rating:4.8,
@@ -226,7 +268,7 @@ const Kpi = ({ bg, fg, Icon, num, lab }) => (
   </div>
 );
 const Top = ({ h, p }) => (
-  <div className="topbar">
+  <div className="topbar no-print">
     <div><h1>{h}</h1><p>{p}</p></div>
     <div className="chip"><span className="dot"></span> متصل • م. خالد العتيبي</div>
   </div>
@@ -248,7 +290,8 @@ export default function ElevatorMaintenanceApp() {
   // quotes & contracts
   const [quoteFor, setQuoteFor] = useState(null);
   const [schedule, setSchedule] = useState(null);
-  const [form, setForm] = useState({ name:"", phone:"", loc:"", elev:2, dur:"12 شهراً", per:"زيارة واحدة/شهر" });
+  const [form, setForm] = useState({ name:"", phone:"", loc:"", elev:2, dur:"12 شهراً", per:"زيارة واحدة/شهر", value:"", payment:"سنوي", start:"" });
+  const [contractDoc, setContractDoc] = useState(null);
 
   const canvasRef = useRef(null);
   const drawing = useRef(false);
@@ -315,13 +358,96 @@ export default function ElevatorMaintenanceApp() {
     const name = form.name || "العميل الجديد";
     const months = form.dur.includes("24") ? 24 : form.dur.includes("6") ? 6 : 12;
     const per = form.per.includes("زيارتان") ? 2 : 1;
+    const elev = Number(form.elev) || 1;
+    const totalVisits = months * per;
+    const value = Number(form.value) || Math.round(elev * 1200 * (months / 12) * per);
     const rows = [];
-    for (let i = 0; i < Math.min(months, 12); i++) for (let k = 0; k < per; k++)
-      rows.push({ d:`${AR_MONTHS[i % 12]} 2026`, x:`زيارة صيانة دورية — ${name}` });
-    setSchedule({ count: months * per, rows });
+    for (let i = 0; i < months; i++) for (let k = 0; k < per; k++)
+      rows.push({ no: rows.length + 1, d: `${AR_MONTHS[i % 12]} ${2026 + Math.floor((i + 6) / 12)}`, k: k + 1 });
+    const num = "EC-2026-" + String(1000 + Math.floor(Math.random() * 9000));
+    const date = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    setContractDoc({ num, date, name, phone: form.phone || "—", loc: form.loc || "—", elev, months, per, totalVisits, value, payment: form.payment, start: form.start || date, rows });
+    setSchedule({ count: totalVisits, rows: rows.map(r => ({ d: r.d, x: `زيارة صيانة دورية — ${name}` })) });
     setCompany(c => ({ ...c, contracts: c.contracts + 1, clients: c.clients + 1 }));
-    showToast(`تم إنشاء العقد وجدولة ${months * per} زيارة + إضافة ملف العميل`);
+    showToast(`تم إنشاء العقد ${num} وجدولة ${totalVisits} زيارة`);
   };
+
+  const ContractDoc = ({ d }) => (
+    <div className="contract-doc">
+      <div className="cd-head">
+        <div className="cd-logo">
+          <div className="mark"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#241700" strokeWidth="2.2"><path d="M4 3h16v18H4zM12 3v18M7 8l-1.5 2h3zM17 8l1.5 2h-3z" /></svg></div>
+          <div><b>مِصعد برو</b><small>لصيانة وتشغيل المصاعد</small></div>
+        </div>
+        <div className="cd-meta">
+          رقم العقد: <b>{d.num}</b><br />
+          تاريخ التحرير: <b>{d.date}</b><br />
+          الرقم الضريبي: <b>3001XXXXXXXXX</b>
+        </div>
+      </div>
+      <div className="cd-title">عقد صيانة مصاعد دورية</div>
+      <div className="cd-sub">أُبرم هذا العقد بمدينة جدة بتاريخ {d.date} بين الطرفين الآتيين:</div>
+
+      <div className="cd-parties">
+        <div className="cd-party">
+          <h4>الطرف الأول — مقدّم الخدمة</h4>
+          <div className="row"><span>الاسم</span><b>شركة مِصعد برو</b></div>
+          <div className="row"><span>النشاط</span><span>صيانة المصاعد</span></div>
+          <div className="row"><span>الجوال</span><span>0500 000 000</span></div>
+        </div>
+        <div className="cd-party">
+          <h4>الطرف الثاني — العميل</h4>
+          <div className="row"><span>الاسم</span><b>{d.name}</b></div>
+          <div className="row"><span>الموقع</span><span>{d.loc}</span></div>
+          <div className="row"><span>الجوال</span><span>{d.phone}</span></div>
+        </div>
+      </div>
+
+      <div className="cd-sec">بنود العقد</div>
+      <ol className="cd-clauses">
+        <li><b>مدة العقد:</b> {d.months} شهراً تبدأ من {d.start}، وتُجدَّد باتفاق الطرفين.</li>
+        <li><b>عدد الزيارات:</b> {d.per === 2 ? "زيارتان شهرياً" : "زيارة واحدة شهرياً"} بإجمالي <b>{d.totalVisits}</b> زيارة خلال مدة العقد.</li>
+        <li><b>المصاعد المشمولة:</b> {d.elev} {d.elev === 1 ? "مصعد" : "مصاعد"} مملوكة للطرف الثاني.</li>
+        <li><b>نطاق العمل:</b> الفحص الدوري، التشحيم، فحص أنظمة الأمان والفرامل والأبواب وأزرار الطوارئ، وإصلاح الأعطال البسيطة. (قطع الغيار الرئيسية تُقدَّم بعرض سعر منفصل).</li>
+        <li><b>قيمة العقد:</b> {d.value.toLocaleString()} ريال سعودي شاملة ضريبة القيمة المضافة 15%، تُدفع بنظام {d.payment}.</li>
+        <li><b>الطوارئ:</b> يلتزم الطرف الأول بالاستجابة لبلاغات الأعطال الطارئة خلال مدة لا تتجاوز ساعتين.</li>
+        <li><b>التقارير:</b> يُسلَّم تقرير بعد كل زيارة، ويُخطَر العميل بأي أعمال تحتاج عرض سعر قبل تنفيذها.</li>
+      </ol>
+
+      <div className="cd-sec">جدول الزيارات المعتمد</div>
+      <table className="cd-table">
+        <thead><tr><th style={{ width: 60 }}>#</th><th>الشهر</th><th>نوع الزيارة</th><th>الحالة</th></tr></thead>
+        <tbody>
+          {d.rows.map(r => (
+            <tr key={r.no}><td>{r.no}</td><td>{r.d}{d.per === 2 ? ` (${r.k})` : ""}</td><td>صيانة دورية</td><td>مجدولة</td></tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="cd-signs">
+        <div className="cd-sign">
+          <div className="who">الطرف الأول — شركة مِصعد برو</div>
+          <svg className="cd-sig" width="130" height="46" viewBox="0 0 130 46"><path d="M6 30 C 20 6, 30 40, 44 22 S 66 4, 78 26 C 86 40, 96 10, 110 24 L 124 18" fill="none" stroke="#1B3A6B" strokeWidth="2.2" strokeLinecap="round" /></svg>
+          <svg className="cd-stamp" width="120" height="120" viewBox="0 0 135 135">
+            <circle cx="67.5" cy="67.5" r="62" fill="none" stroke="#1B3A6B" strokeWidth="2.5" />
+            <circle cx="67.5" cy="67.5" r="52" fill="none" stroke="#1B3A6B" strokeWidth="1.3" />
+            <text x="67.5" y="44" textAnchor="middle" fontSize="13" fontWeight="800" fill="#1B3A6B">مِصعد برو</text>
+            <line x1="32" y1="53" x2="103" y2="53" stroke="#1B3A6B" strokeWidth="1" />
+            <text x="67.5" y="71" textAnchor="middle" fontSize="9.5" fontWeight="700" fill="#1B3A6B">صيانة وتشغيل</text>
+            <text x="67.5" y="84" textAnchor="middle" fontSize="9.5" fontWeight="700" fill="#1B3A6B">المصاعد</text>
+            <line x1="32" y1="92" x2="103" y2="92" stroke="#1B3A6B" strokeWidth="1" />
+            <text x="67.5" y="109" textAnchor="middle" fontSize="10.5" fontWeight="800" fill="#1B3A6B">معتمد ✓</text>
+          </svg>
+          <div className="line">التوقيع والختم</div>
+        </div>
+        <div className="cd-sign">
+          <div className="who">الطرف الثاني — {d.name}</div>
+          <div className="line">التوقيع: ........................</div>
+        </div>
+      </div>
+      <div className="cd-foot">هذا العقد مُنشأ إلكترونياً عبر نظام مِصعد برو — {d.num}</div>
+    </div>
+  );
 
   const NAV = [
     { id:"dash", label:"لوحة الشركة", Icon:LayoutDashboard },
@@ -598,8 +724,8 @@ export default function ElevatorMaintenanceApp() {
 
     if (view === "contracts") {
       return (<>
-        <Top h="العقود" p="إنشاء عقد يضيف العميل ويجدول زياراته تلقائياً" />
-        <div className="grid two">
+        <Top h="العقود" p="إنشاء عقد رسمي مختوم وموقّع مع جدولة الزيارات تلقائياً" />
+        <div className="grid two no-print">
           <div className="panel"><h3>عقد جديد</h3><div className="pbody">
             <div className="grid form-grid">
               <div><label className="fld">اسم العميل</label><input className="in" value={form.name} onChange={e => setForm({ ...form, name:e.target.value })} placeholder="مثال: مجمع الياسمين" /></div>
@@ -608,8 +734,11 @@ export default function ElevatorMaintenanceApp() {
               <div><label className="fld">عدد المصاعد</label><input className="in" type="number" value={form.elev} onChange={e => setForm({ ...form, elev:e.target.value })} /></div>
               <div><label className="fld">مدة العقد</label><select className="in" value={form.dur} onChange={e => setForm({ ...form, dur:e.target.value })}><option>6 أشهر</option><option>12 شهراً</option><option>24 شهراً</option></select></div>
               <div><label className="fld">زيارة شهرية</label><select className="in" value={form.per} onChange={e => setForm({ ...form, per:e.target.value })}><option>زيارة واحدة/شهر</option><option>زيارتان/شهر</option></select></div>
+              <div><label className="fld">قيمة العقد السنوية (ريال)</label><input className="in" type="number" value={form.value} onChange={e => setForm({ ...form, value:e.target.value })} placeholder="تُحسب تلقائياً إن تُركت فارغة" /></div>
+              <div><label className="fld">طريقة الدفع</label><select className="in" value={form.payment} onChange={e => setForm({ ...form, payment:e.target.value })}><option>سنوي</option><option>نصف سنوي</option><option>ربع سنوي</option></select></div>
+              <div><label className="fld">تاريخ بداية العقد</label><input className="in" value={form.start} onChange={e => setForm({ ...form, start:e.target.value })} placeholder="مثال: 1 يوليو 2026" /></div>
             </div>
-            <div className="notice" style={{ marginTop:14 }}><span>📎</span><div>عند الحفظ يُنشأ ملف العميل ويُرفق العقد، وتُجدول الزيارات الشهرية تلقائياً في التقويم.</div></div>
+            <div className="notice" style={{ marginTop:14 }}><span>📎</span><div>عند الإنشاء يُنشأ ملف العميل، ويُولَّد عقد رسمي مختوم وموقّع، وتُجدول الزيارات تلقائياً حسب المدة وعدد الزيارات الشهرية.</div></div>
             <button className="btn pri" onClick={createContract}>إنشاء العقد وجدولة الزيارات</button>
           </div></div>
           <div className="panel"><h3>الزيارات المجدولة {schedule && <span className="mini">{schedule.count} زيارة</span>}</h3>
@@ -620,6 +749,12 @@ export default function ElevatorMaintenanceApp() {
             </div>
           </div>
         </div>
+        {contractDoc && (<>
+          <div className="print-bar no-print">
+            <button className="btn amber" style={{ width:"auto" }} onClick={() => window.print()}>🖨️ طباعة / حفظ كـ PDF</button>
+          </div>
+          <ContractDoc d={contractDoc} />
+        </>)}
       </>);
     }
     return null;
@@ -628,8 +763,9 @@ export default function ElevatorMaintenanceApp() {
   return (
     <div className="em-root" dir="rtl">
       <style>{CSS}</style>
+      <style>{CONTRACT_CSS}</style>
       <div className="app">
-        <aside className="side">
+        <aside className="side no-print">
           <div className="brand">
             <div className="lift">
               <svg viewBox="0 0 24 24" fill="none" stroke="#241700" strokeWidth="2.2"><path d="M4 3h16v18H4zM12 3v18M7 8l-1.5 2h3zM17 8l1.5 2h-3z" /></svg>
@@ -648,7 +784,7 @@ export default function ElevatorMaintenanceApp() {
         </aside>
         <main className="main">{renderView()}</main>
       </div>
-      {toast && <div className="toast">✅ {toast}</div>}
+      {toast && <div className="toast no-print">✅ {toast}</div>}
     </div>
   );
 }
